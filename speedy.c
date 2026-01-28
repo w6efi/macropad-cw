@@ -38,7 +38,7 @@ static volatile int keep_running = 1;
 
 // Debug logging
 void log_debug(const char *fmt, ...) {
-    if (!debug_enabled) return;
+    // if (!debug_enabled) return;  // not the right place for this
 
     va_list args;
     va_start(args, fmt);
@@ -203,7 +203,7 @@ int get_current_speed(int serial_fd, int *speed_out) {
     return 0;
 }
 
-// Daemonize process
+// Daemonize process unless debugging
 void daemonize() {
 #if !DEBUG
     pid_t pid = fork();
