@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <getopt.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -19,16 +20,30 @@
 #include <stdarg.h>
 
 /* speedy.c
-written with help from ChatGPT
+speed daemon.   
+Listens to rotary encoder on NULLBITS Scramble macropad and sends cw speed commands to radio
+macropad device can be changed in the defines.
 
-You may use this code freely for noncommercial purposes.  Please give me some credit -- W6EFI
+Assumes an FTDX10 radio cat commands.  TODO: pull cat commands up into DEFINEs
+
+to run:
+sudo ./speedy [-d,--debug] [-f path-to-radio-device-file]
+
+defaults are no debug, /dev/ttyUSB0.   if debug, will not daemonize
+
+To compile:
+gcc -Wall -Wextra -o speedy speedy.c
+
+
+written with help from ChatGPT
+You may use this code freely for noncommercial purposes.  Please give me credit -- W6EFI
 */
 
 // #define DEBUG 1  // Set to 0 to disable debug output.  update: made it a runtime option
 #define KNOB_CLOCKWISE 190
 #define KNOB_COUNTERCLOCKWISE 189
 #define KNOB_CLICK 185
-#define SERIAL_PORT "/dev/ttyUSB0"
+#define SERIAL_PORT "/dev/ttyUSB0" // can override with commandline option
 #define BAUDRATE B38400
 #define TIMEOUT_SEC 2
 #define TARGET_DEVICE_NAME "nullbits SCRAMBLE"  // Adjust this based on your QMK device
@@ -233,19 +248,51 @@ void daemonize() {
 
 int main(int argc, char *argv[]) {
 
+    char *radio_device_path = SERIAL_PORT;
+
+    static struct option long_options[] = {
+        {"debug", no_argument, 0, 'd'},
+        {"f",     required_argument, 0, 'f'},
+        {0, 0, 0, 0}
+    };
+
+    int opt;
+    while ((opt = getopt_long(argc, argv, "df:", long_options, NULL)) != -1) {
+        switch (opt) {
+            case 'd':
+                debug_enabled = 1;
+                break;
+            case 'f':
+                radio_device_path = optarg;
+                break;
+            default:
+                fprintf(stderr,
+                        "Usage: %s [--debug] [--f <path-to-device-file>]\n",
+                        argv[0]);
+                return 1;
+        }
+    }
+    if (debug_enabled) {
+        printf("Debug mode: %s\n", debug_enabled ? "ON" : "OFF");
+        printf("Device file: %s\n",
+           radio_device_path ? radio_device_path : "(not specified)");
+    }
+
+/*
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "--debug") == 0) {
             debug_enabled = 1;
         }
     }
+*/
 
     if (!debug_enabled) daemonize();
 
     signal(SIGINT, sigint_handler);
     signal(SIGTERM, sigint_handler);
 
-    log_debug("Opening serial port: %s", SERIAL_PORT);
-    int serial_fd = open_serial(SERIAL_PORT);
+    log_debug("Opening serial port: %s", radio_device_path);
+    int serial_fd = open_serial(radio_device_path);
     if (serial_fd < 0) exit(EXIT_FAILURE);
 
     char input_device_path[PATH_MAX];
