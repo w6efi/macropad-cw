@@ -9,4 +9,4 @@ Since the time the article was written, I have updated the program and documenta
 can be viewed in the earlier commits.
 
 The main point is that you can make your own control surface if you want more buttons and knobs for your radio and you are not
-limited by commercial products.
+limited to commercial products.
