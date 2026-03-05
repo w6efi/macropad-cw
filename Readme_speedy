@@ -3,40 +3,49 @@ Readme
 
 speedy.c
 
-sudo speedy [--debug]
+sudo ./speedy [-d,--debug] [-f path-to-radio-device-file]
 
-One piece of the package implementing macropad CAT functionality.
+defaults are no debug, /dev/rig.   if debug, will not daemonize
 
-speedy.c is a background daemon that communicates with an FTDX10 radio over a serial port (e.g., /dev/ttyUSB0) to read and control a numeric "speed" value using the rotary encoder knob on a macropad.  It assumes the macropad rotary control has been mapped to F15 (click) F19 & F20 (counterclockwise & clockwise).   This can be changed in the code #DEFINEs .   It also assumes a "nullbits SCRAMBLE" macropad.  Name of the device can also be changed in the code #DEFINEs.
+To compile:
+gcc -Wall -Wextra -o speedy speedy.c
 
-The reason for implementing this daemon in the first place is that there is no CAT command 
-for incrementing or decrementing keyer speed directly.  The current speed needs to be saved. 
-Otherwise a simple keyboard shortcut would have been fine.
+Proof of concept -- Implementing macropad CAT functions for a few things that for which I want buttons and knobs for quick adjustment,
+but which the radio only offers by digging through menus and a touchscreen.   Namely, keyer on/off; breakin on/off; keyer speed.
 
-Side note -- toggle features like Breakin on/off and Keyer on/off are not handled here -- they are
-implemented as simple keyboard application shortcuts, configured in xfce4-keyboard-settings.
+speedy.c is a background daemon that communicates with an FTDX10 radio over a usb serial port (e.g., /dev/rig linked to /dev/ttyUSB0) to read and control a numeric "speed" value using the rotary encoder knob on a macropad.  The type of radio can be adjusted just by updating the CAT codes in the #defines.  
+CAT codes are just strings, documented in the advanced manual.
 
-Another side note -- may need to use xmodmap to ensure that keymappings are correct.
+The program also assumes a "nullbits SCRAMBLE" macropad that has been programmed with QMK firmware to issue the desired codes.  Name of the device can also be changed in the code #DEFINEs.
 
--- Dependencies
+This updated version of this program also listens for other keypresses from the macropad, so no need to deal with keybindings, xmodmap, etc.  Depending
+on your needs, you may not even need this program.  If what you need are things implemented as stateless commands then you could do everything with
+keyboard bindings instead.   You just need to look at your manual for the CAT command definitions.
+
+The reason for implementing this daemon in the first place was that there is no CAT command 
+for incrementing or decrementing keyer speed directly.  The current speed needs to be retrieved, incremented, 
+saved for later changes (that makes it stateful) and written back.
+Otherwise all of the functionality here could have been implemented with simple key bindings.
+
+
+
+Dependencies
     Assumes FTDX10 cat commands (see FTDX10 CAT manual for details)
-    Assumes the correct keybindings have been set in xmodmap -- if speedy
-       doesn't seem to be responding to keypresses, first try xmodmap xmodmap-new
+    No dependency on hamlib or flrig etc (although this could probably be implemented with the hamlib api)
 
- 
-🔧 Features
+Features
 
-    Communicates with serial device at 38400 baud.
-    Listens to a specific Linux input event device (e.g. /dev/input/event10).
+    Communicates with radio at usb serial device at 38400 baud.
+    Listens to a input event device (macropad)
     Debounces keypresses to avoid duplicate triggers.
-    Automatically queries and stores the initial speed value at startup.
-    Runs as a silent background daemon.
-    Rotary encoder support via exact device name
-    Dynamic input device detection
-    Debounced input
-    Debug commandline option: no demonize and prints debugging info
+    Queries and stores the initial speed value at startup.
+    Runs as a background daemon unless invoked with debugging option
+    Rotary encoder support -- knob clicks are just the same as button clicks
+    Can be compiled with dynamic input device detection if needed
+    Debug commandline option: runs in the foreground instead of as a daemon and prints debugging info
+    Exits if input device goes missing (unplugged)
 
-Key mapping
+Key functions
 
     breakin on/off
     keyer on/off
@@ -45,63 +54,7 @@ Key mapping
 
 
 
-🖧 Serial Format
-
-    On startup, it sends KS; to request the current speed.
-
-    It expects a response like: KS123;
-
-    Extracts the numeric value 123.
-
-    Upon keypress, sends back the new speed as: KS124;, KS122;, etc.
-
-📦 Requirements
-
-    Linux system with:
-
-        /dev/ttyUSB0 connected to a compatible serial device
-
-        A multimedia keyboard (with volume keys)
-
-        Access to the correct input device (see below)
-
-🔍 Finding Your Input Device
-
-To find the correct event device for your keyboard:
-
-sudo evtest
-
-Press volume up/down and note which /dev/input/eventX logs those key events.
-
-Update the source accordingly:
-
-#define INPUT_EVENT_DEVICE "/dev/input/eventX"
-
-🛠️ Building
-
-gcc speedy.c -o speedy
-
-🚀 Running
-
-sudo ./speedy           # runs as a daemon
-sudo ./speedy --debug   # runs at the commandline and prints debugging output
-
-It will daemonize automatically and run in the background.
 
 To stop it:
 
 sudo killall -9 speedy
-
-🐞 Debugging
-
-To debug or test interactively:
-
-    Comment out the daemonize(); line in main().
-
-    Add printf() statements.
-
-    Run it directly in a terminal.
-
-📎 Use Case
-
-This is used to enable a macropad knob to control an FTDX10 radio via CAT keyer speed commands, which are of the form KS###;.
